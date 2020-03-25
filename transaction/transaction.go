@@ -4,11 +4,11 @@ import (
 	"errors"
 	"time"
 
-	"github.com/discoviking/fsm"
-	"github.com/stefankopieczek/gossip/base"
-	"github.com/stefankopieczek/gossip/log"
-	"github.com/stefankopieczek/gossip/timing"
-	"github.com/stefankopieczek/gossip/transport"
+	"github.com/rynorris/fsm"
+	"github.com/kqbi/gossip/base"
+	"github.com/kqbi/gossip/log"
+	"github.com/kqbi/gossip/timing"
+	"github.com/kqbi/gossip/transport"
 )
 
 // Generic Client Transaction

@@ -1,8 +1,8 @@
 package test
 
 import (
-	"github.com/stefankopieczek/gossip/transaction"
-	"github.com/stefankopieczek/gossip/transport"
+	"github.com/kqbi/gossip/transaction"
+	"github.com/kqbi/gossip/transport"
 	"testing"
 )
 
