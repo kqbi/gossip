@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/kqbi/gossip/base"
 	"github.com/kqbi/gossip/log"
@@ -36,8 +37,11 @@ func NewConn(baseConn net.Conn, output chan base.SipMessage) *connection {
 	connection.parsedMessages = make(chan base.SipMessage)
 	connection.parserErrors = make(chan error)
 	connection.output = output
+	strings := strings.Split(connection.baseConn.RemoteAddr().String(), ":")
 	connection.parser = parser.NewParser(connection.parsedMessages,
 		connection.parserErrors,
+		strings[0],
+		strings[1],
 		connection.isStreamed)
 
 	go connection.read()
@@ -105,8 +109,9 @@ func (connection *connection) pipeOutput() {
 			if ok {
 				// The parser has hit a terminal error. We need to restart it.
 				log.Warn("Failed to parse SIP message: %s", err.Error())
+				strings := strings.Split(connection.baseConn.RemoteAddr().String(), ":")
 				connection.parser = parser.NewParser(connection.parsedMessages,
-					connection.parserErrors, connection.isStreamed)
+					connection.parserErrors, strings[0],strings[1],connection.isStreamed)
 			} else {
 				break
 			}

@@ -3,22 +3,21 @@ package transport
 import (
 	"github.com/kqbi/gossip/base"
 	"github.com/kqbi/gossip/log"
-	"github.com/kqbi/gossip/parser"
 )
 
 import "net"
 
 type Tcp struct {
 	connTable
-	listeningPoints []*net.TCPListener
-	parser          *parser.Parser
+	listeningPoint *net.TCPListener
+	//parser          *parser.Parser
 	output          chan base.SipMessage
 	stop            bool
 }
 
 func NewTcp(output chan base.SipMessage) (*Tcp, error) {
 	tcp := Tcp{output: output}
-	tcp.listeningPoints = make([]*net.TCPListener, 0)
+	tcp.listeningPoint = nil
 	tcp.connTable.Init()
 	return &tcp, nil
 }
@@ -35,7 +34,7 @@ func (tcp *Tcp) Listen(address string) error {
 		return err
 	}
 
-	tcp.listeningPoints = append(tcp.listeningPoints, lp)
+	tcp.listeningPoint = lp
 	go tcp.serve(lp)
 
 	// At this point, err should be nil but let's be defensive.
@@ -99,7 +98,5 @@ func (tcp *Tcp) serve(listeningPoint *net.TCPListener) {
 func (tcp *Tcp) Stop() {
 	tcp.connTable.Stop()
 	tcp.stop = true
-	for _, lp := range tcp.listeningPoints {
-		lp.Close()
-	}
+	tcp.listeningPoint.Close()
 }

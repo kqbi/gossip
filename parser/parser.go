@@ -71,10 +71,10 @@ func defaultHeaderParsers() map[string]HeaderParser {
 // This is more costly than reusing a parser, but is necessary when we do not
 // have a guarantee that all messages coming over a connection are from the
 // same endpoint (e.g. UDP).
-func ParseMessage(msgData []byte) (base.SipMessage, error) {
+func ParseMessage(msgData []byte, ip string, port string) (base.SipMessage, error) {
 	output := make(chan base.SipMessage, 0)
 	errors := make(chan error, 0)
-	parser := NewParser(output, errors, false)
+	parser := NewParser(output, errors, ip, port, false)
 	defer parser.Stop()
 
 	parser.Write(msgData)
@@ -100,7 +100,7 @@ func ParseMessage(msgData []byte) (base.SipMessage, error) {
 
 // 'streamed' should be set to true whenever the caller cannot reliably identify the starts and ends of messages from the transport frames,
 // e.g. when using streamed protocols such as TCP.
-func NewParser(output chan<- base.SipMessage, errs chan<- error, streamed bool) Parser {
+func NewParser(output chan<- base.SipMessage, errs chan<- error, ip string, port string, streamed bool) Parser {
 	p := parser{streamed: streamed}
 
 	// Configure the parser with the standard set of header parsers.
@@ -108,7 +108,8 @@ func NewParser(output chan<- base.SipMessage, errs chan<- error, streamed bool) 
 	for headerName, headerParser := range defaultHeaderParsers() {
 		p.SetHeaderParser(headerName, headerParser)
 	}
-
+	p.rHost = ip
+	p.rPort = port
 	p.output = output
 	p.errs = errs
 
@@ -136,6 +137,8 @@ type parser struct {
 	errs          chan<- error
 	terminalErr   error
 	stopped       bool
+	rHost         string
+	rPort         string
 }
 
 func (p *parser) Write(data []byte) (n int, err error) {
@@ -299,6 +302,13 @@ func (p *parser) parse(requireContentLength bool) {
 		default:
 			log.Severe("Internal error - message %s is neither a request type nor a response type", message.Short())
 		}
+		for _, header := range message.Headers("Via") {
+			for _, hop := range *header.(*base.ViaHeader) {
+				hop.Params.Add("received", base.String{p.rHost})
+				hop.Params.Add("rport", base.String{p.rPort})
+			}
+		}
+		fmt.Println("msg:",message.String())
 		p.output <- message
 	}
 
