@@ -46,7 +46,7 @@ type SipMessage interface {
 
 	// Returns a slice of all headers of the given type.
 	// If there are no headers of the requested type, returns an empty slice.
-	Headers(name string) []SipHeader
+	Headers(name string) SipHeader
 
 	// Return all headers attached to the message, as a slice.
 	AllHeaders() []SipHeader
@@ -67,14 +67,14 @@ type SipMessage interface {
 // A shared type for holding headers and their ordering.
 type headers struct {
 	// The logical SIP headers attached to this message.
-	headers map[string][]SipHeader
+	headers map[string]SipHeader
 
 	// The order the headers should be displayed in.
 	headerOrder []string
 }
 
 func newHeaders() (result headers) {
-	result.headers = make(map[string][]SipHeader)
+	result.headers = make(map[string]SipHeader)
 	return result
 }
 
@@ -82,13 +82,13 @@ func (h headers) String() string {
 	buffer := bytes.Buffer{}
 	// Construct each header in turn and add it to the message.
 	for typeIdx, name := range h.headerOrder {
-		headers := h.headers[name]
-		for idx, header := range headers {
+		header := h.headers[name]
+		//for idx, header := range headers {
 			buffer.WriteString(header.String())
-			if typeIdx < len(h.headerOrder) || idx < len(headers) {
+			if typeIdx < len(h.headerOrder) {
 				buffer.WriteString("\r\n")
 			}
-		}
+		//}
 	}
 	return buffer.String()
 }
@@ -96,14 +96,14 @@ func (h headers) String() string {
 // Add the given header.
 func (hs *headers) AddHeader(h SipHeader) {
 	if hs.headers == nil {
-		hs.headers = map[string][]SipHeader{}
+		hs.headers = map[string]SipHeader{}
 		hs.headerOrder = []string{}
 	}
 	name := h.Name()
 	if _, ok := hs.headers[name]; ok {
-		hs.headers[name] = append(hs.headers[name], h)
+		hs.headers[name] = h
 	} else {
-		hs.headers[name] = []SipHeader{h}
+		hs.headers[name] = h
 		hs.headerOrder = append(hs.headerOrder, name)
 	}
 }
@@ -113,39 +113,39 @@ func (hs *headers) AddHeader(h SipHeader) {
 // if there are some headers have h's name, add h to front of the sublist
 func (hs *headers) AddFrontHeader(h SipHeader) {
 	if hs.headers == nil {
-		hs.headers = map[string][]SipHeader{}
+		hs.headers = map[string]SipHeader{}
 		hs.headerOrder = []string{}
 	}
 	name := h.Name()
-	if hdrs, ok := hs.headers[name]; ok {
-		newHdrs := make([]SipHeader, 1, len(hdrs)+1)
+	if hdr, ok := hs.headers[name]; ok {
+		newHdrs := make([]SipHeader, 1, 1)
 		newHdrs[0] = h
-		hs.headers[name] = append(newHdrs, hdrs...)
+		hs.headers[name] = hdr
 	} else {
-		hs.headers[name] = []SipHeader{h}
+		hs.headers[name] = h
 		hs.headerOrder = append(hs.headerOrder, name)
 	}
 }
 
 // Gets some headers.
-func (hs *headers) Headers(name string) []SipHeader {
+func (hs *headers) Headers(name string) SipHeader {
 	if hs.headers == nil {
-		hs.headers = map[string][]SipHeader{}
+		hs.headers = map[string]SipHeader{}
 		hs.headerOrder = []string{}
 	}
 	if headers, ok := hs.headers[name]; ok {
 		return headers
 	} else {
-		return []SipHeader{}
+		return nil
 	}
 }
 
 // Copy all headers of one type from one message to another.
 // Appending to any headers that were already there.
 func CopyHeaders(name string, from, to SipMessage) {
-	for _, h := range from.Headers(name) {
-		to.AddHeader(h.Copy())
-	}
+	//for _, h := range from.Headers(name) {
+		to.AddHeader(from.Headers(name).Copy())
+//	}
 
 }
 
@@ -210,9 +210,9 @@ func (request *Request) Short() string {
 		request.Recipient.String(),
 		request.SipVersion))
 
-	cseqs := request.Headers("CSeq")
-	if len(cseqs) > 0 {
-		buffer.WriteString(fmt.Sprintf(" (CSeq: %s)", (cseqs[0].(*CSeq)).String()))
+	cseq := request.Headers("CSeq")
+	if cseq != nil {
+		buffer.WriteString(fmt.Sprintf(" (CSeq: %s)", cseq.(*CSeq).String()))
 	}
 
 	return buffer.String()
@@ -221,7 +221,7 @@ func (request *Request) Short() string {
 func (request *Request) AllHeaders() []SipHeader {
 	allHeaders := make([]SipHeader, 0)
 	for _, key := range request.headers.headerOrder {
-		allHeaders = append(allHeaders, request.headers.headers[key]...)
+		allHeaders = append(allHeaders, request.headers.headers[key])
 	}
 
 	return allHeaders
@@ -234,23 +234,23 @@ func (request *Request) RemoveHeader(header SipHeader) error {
 
 	headersOfSameType, isMatch := request.headers.headers[name]
 
-	if !isMatch || len(headersOfSameType) == 0 {
+	if !isMatch || headersOfSameType == nil {
 		return errNoMatch
 	}
 
-	found := false
-	for idx, hdr := range headersOfSameType {
-		if hdr == header {
-			request.headers.headers[name] = append(headersOfSameType[:idx], headersOfSameType[idx+1:]...)
-			found = true
-			break
-		}
-	}
-	if !found {
-		return errNoMatch
-	}
+	//found := false
+	//for idx, hdr := range headersOfSameType {
+	//	if hdr == header {
+		//	request.headers.headers[name] = append(headersOfSameType[:idx], headersOfSameType[idx+1:]...)
+		//	found = true
+		//	break
+		//}
+	//}
+	//if !found {
+	//	return errNoMatch
+	//}
 
-	if len(request.headers.headers[name]) == 0 {
+	if request.headers.headers[name] == nil {
 		// The header we removed was the only one of its type.
 		// Tidy up the header structure by removing the empty list value from the header map,
 		// and removing the entry from the headerOrder list.
@@ -273,11 +273,11 @@ func (request *Request) GetBody() string {
 func (request *Request) SetBody(body string) {
 	request.Body = body
 	hdrs := request.Headers("Content-Length")
-	if len(hdrs) == 0 {
+	if hdrs == nil {
 		length := ContentLength(len(body))
 		request.AddHeader(length)
 	} else {
-		hdrs[0] = ContentLength(len(body))
+		hdrs = ContentLength(len(body))
 	}
 }
 
@@ -344,9 +344,9 @@ func (response *Response) Short() string {
 		response.StatusCode,
 		response.Reason))
 
-	cseqs := response.Headers("CSeq")
-	if len(cseqs) > 0 {
-		buffer.WriteString(fmt.Sprintf(" (CSeq: %s)", (cseqs[0].(*CSeq)).String()))
+	cseq := response.Headers("CSeq")
+	if cseq != nil {
+		buffer.WriteString(fmt.Sprintf(" (CSeq: %s)", cseq.(*CSeq).String()))
 	}
 
 	return buffer.String()
@@ -355,7 +355,7 @@ func (response *Response) Short() string {
 func (response *Response) AllHeaders() []SipHeader {
 	allHeaders := make([]SipHeader, 0)
 	for _, key := range response.headers.headerOrder {
-		allHeaders = append(allHeaders, response.headers.headers[key]...)
+		allHeaders = append(allHeaders, response.headers.headers[key])
 	}
 
 	return allHeaders
@@ -368,23 +368,23 @@ func (response *Response) RemoveHeader(header SipHeader) error {
 
 	headersOfSameType, isMatch := response.headers.headers[name]
 
-	if !isMatch || len(headersOfSameType) == 0 {
+	if !isMatch || headersOfSameType == nil {
 		return errNoMatch
 	}
 
-	found := false
-	for idx, hdr := range headersOfSameType {
-		if hdr == header {
-			response.headers.headers[name] = append(headersOfSameType[:idx], headersOfSameType[idx+1:]...)
-			found = true
-			break
-		}
-	}
-	if !found {
-		return errNoMatch
-	}
+	//found := false
+	//for idx, hdr := range headersOfSameType {
+	//	if hdr == header {
+	//		response.headers.headers[name] = append(headersOfSameType[:idx], headersOfSameType[idx+1:]...)
+	//		found = true
+	//		break
+	//	}
+	//}
+	//if !found {
+	//	return errNoMatch
+	//}
 
-	if len(response.headers.headers[name]) == 0 {
+	if response.headers.headers[name] == nil {
 		// The header we removed was the only one of its type.
 		// Tidy up the header structure by removing the empty list value from the header map,
 		// and removing the entry from the headerOrder list.
@@ -406,11 +406,11 @@ func (response *Response) GetBody() string {
 
 func (response *Response) SetBody(body string) {
 	response.Body = body
-	hdrs := response.Headers("Content-Length")
-	if len(hdrs) == 0 {
+	hdr := response.Headers("Content-Length")
+	if hdr == nil {
 		length := ContentLength(len(body))
 		response.AddHeader(length)
 	} else {
-		hdrs[0] = ContentLength(len(body))
+		hdr = ContentLength(len(body))
 	}
 }

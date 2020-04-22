@@ -261,26 +261,26 @@ func (p *parser) parse(requireContentLength bool) {
 		// Determine the length of the body, so we know when to stop parsing this message.
 		if p.streamed {
 			// Use the content-length header to identify the end of the message.
-			contentLengthHeaders := message.Headers("Content-Length")
-			if len(contentLengthHeaders) == 0 {
+			contentLengthHeader := message.Headers("Content-Length")
+			if contentLengthHeader == nil {
 				p.terminalErr = fmt.Errorf("Missing required content-length header on message %s", message.Short())
 				p.errs <- p.terminalErr
 				break
-			} else if len(contentLengthHeaders) > 1 {
+			} else if contentLengthHeader != nil {
 				var errbuf bytes.Buffer
 				errbuf.WriteString("Multiple content-length headers on message ")
 				errbuf.WriteString(message.Short())
 				errbuf.WriteString(":\n")
-				for _, header := range contentLengthHeaders {
+			//	for _, header := range contentLengthHeaders {
 					errbuf.WriteString("\t")
-					errbuf.WriteString(header.String())
-				}
+					errbuf.WriteString(contentLengthHeader.String())
+			//	}
 				p.terminalErr = fmt.Errorf(errbuf.String())
 				p.errs <- p.terminalErr
 				break
 			}
 
-			contentLength = int(*(contentLengthHeaders[0].(*base.ContentLength)))
+			contentLength = int(*(contentLengthHeader.(*base.ContentLength)))
 		} else {
 			// We're not in streaming mode, so the Write method should have calculated the length of the body for us.
 			contentLength = (<-p.bodyLengths.Out).(int)
@@ -302,12 +302,12 @@ func (p *parser) parse(requireContentLength bool) {
 		default:
 			log.Severe("Internal error - message %s is neither a request type nor a response type", message.Short())
 		}
-		for _, header := range message.Headers("Via") {
-			for _, hop := range *header.(*base.ViaHeader) {
+		//for _, header := range message.Headers("Via") {
+			for _, hop := range *message.Headers("Via").(*base.ViaHeader) {
 				hop.Params.Add("received", base.String{p.rHost})
 				hop.Params.Add("rport", base.String{p.rPort})
 			}
-		}
+		//}
 		fmt.Println("msg:",message.String())
 		p.output <- message
 	}

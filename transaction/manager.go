@@ -68,12 +68,12 @@ func (mng *Manager) Requests() <-chan *ServerTransaction {
 
 func (mng *Manager) putTx(tx Transaction) {
 	viaHeaders := tx.Origin().Headers("Via")
-	if len(viaHeaders) == 0 {
+	if viaHeaders == nil {
 		log.Warn("No Via header on new transaction. Transaction will be dropped.")
 		return
 	}
 
-	via, ok := viaHeaders[0].(*base.ViaHeader)
+	via, ok := viaHeaders.(*base.ViaHeader)
 	if !ok {
 		// TODO: Handle this better.
 		panic(errors.New("Headers('Via') returned non-Via header!"))
@@ -103,7 +103,7 @@ func (mng *Manager) putTx(tx Transaction) {
 
 func (mng *Manager) makeKey(s base.SipMessage) (key, bool) {
 	viaHeaders := s.Headers("Via")
-	via, ok := viaHeaders[0].(*base.ViaHeader)
+	via, ok := viaHeaders.(*base.ViaHeader)
 	if !ok {
 		panic(errors.New("Headers('Via') returned non-Via header!"))
 	}
@@ -129,12 +129,12 @@ func (mng *Manager) makeKey(s base.SipMessage) (key, bool) {
 		}
 	case *base.Response:
 		cseqs := s.Headers("CSeq")
-		if len(cseqs) == 0 {
+		if cseqs == nil {
 			// TODO - Handle non-existent CSeq
 			panic("No CSeq on response!")
 		}
 
-		cseq, _ := s.Headers("CSeq")[0].(*base.CSeq)
+		cseq, _ := s.Headers("CSeq").(*base.CSeq)
 		method = string(cseq.MethodName)
 	}
 
@@ -256,12 +256,12 @@ func (mng *Manager) request(r *base.Request) {
 
 	// Use the remote address in the top Via header.  This is not correct behaviour.
 	viaHeaders := tx.Origin().Headers("Via")
-	if len(viaHeaders) == 0 {
+	if viaHeaders == nil {
 		log.Warn("No Via header on new transaction. Transaction will be dropped.")
 		return
 	}
 
-	via, ok := viaHeaders[0].(*base.ViaHeader)
+	via, ok := viaHeaders.(*base.ViaHeader)
 	if !ok {
 		panic(errors.New("Headers('Via') returned non-Via header!"))
 	}

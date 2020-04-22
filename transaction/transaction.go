@@ -180,10 +180,10 @@ func (tx *ClientTransaction) Ack() {
 	base.CopyHeaders("From", tx.origin, ack)
 	base.CopyHeaders("Call-Id", tx.origin, ack)
 	base.CopyHeaders("Route", tx.origin, ack)
-	cseq := tx.origin.Headers("CSeq")[0].Copy()
+	cseq := tx.origin.Headers("CSeq").Copy()
 	cseq.(*base.CSeq).MethodName = base.ACK
 	ack.AddHeader(cseq)
-	via := tx.origin.Headers("Via")[0].Copy()
+	via := tx.origin.Headers("Via").Copy()
 	ack.AddHeader(via)
 
 	// Copy headers from response.
